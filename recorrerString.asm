@@ -7,31 +7,56 @@ hexa		   db  " hex  ",0
 chari		   db  "  of char: ",0
 espaciosp	   db  "sp",0
 newline	 	   db  "nwln",0
+file_name      db  "archivo.txt",0
+
+
 
 .UDATA
 in_name        resb  31
 letra 		   resb  31
 binario 	   resb  100
-hexadec		   resb  100
-octal		   resb  100
-utf			   resb  100
+
+octal		   resb  50
+utf			   resb  50
+hexadec		   resb  50
+fd_out		   resb 1
+fd_in	       resb 1
+info		   resb  26
+
 
 .CODE
      .STARTUP
-     PutStr  name_prompt    ; request character string
-     GetStr  in_name,31     ; read input character string
-	 
-     xor 	 EDX,EDX
-     mov     EBX,in_name    ; EBX = pointer to in_name
-     xor	 EDX,EDX
      
-
+   mov eax, 5
+   mov ebx, file_name
+   mov ecx, 0             ;for read only access
+   mov edx, 0777        ;read, write and execute by all
+   int  0x80
+   mov  [fd_in], eax
+   ;read from file
+   mov eax, 3
+   mov ebx, [fd_in]
+   mov ecx, info
+   mov edx, 26
+   int  0x80
+   ; close the file
+   mov eax, 6
+   mov ebx, [fd_in]
+   
+   mov ebx, info  
+   xor	edx,edx			;contis de binario
+   xor 	ebp,ebp			;vamos a usar este como el digito a ingresar
+   xor 	esi,esi			;contis de hexa
+   xor 	esi,esi
+   xor	ecx,ecx
+   xor	eax,eax
 process_char:
+	xor		AL,AL
      mov     AL,[EBX]       ; move the char. to AL
      cmp     AL,0           ; if it is the NULL character
      je      done           ; conversion done
      PutStr  out_msg
-     sub	 CX,CX
+     xor	 CX,CX
      mov 	 CX,8
      
      
@@ -39,18 +64,27 @@ process_char:
 rotate:
 	shl	AL,1
 	jc	print_1
-		
+	mov	dx, 30H
+	mov [binario+ebp],dx
 	PutCh	'0'
 	jmp	skip
 
 print_1:
+	mov	edx, 31H
+	mov [binario+ebp],edx
 	PutCh	'1'
 
 skip:
+	inc	 	ebp
 	loop	rotate
 	PutStr  hexa
      
-hex:     
+hex:    
+	 xor	 AH,AH
+	 xor	 AL,AL
+	 xor	CX,CX
+	 
+	 ;mov 	 [hexadec],esi
 	 mov     AL,[EBX] 
      mov     AH,AL        ; save input character in AH
      shr     AL,4         ; move upper 4 bits to lower half
@@ -65,7 +99,10 @@ A_to_F:
                           ; to convert to A through F
 ski:
 	 
+	 mov 	[hexadec+esi],AL
      PutCh   AL           ; write the first hex digit
+     inc	 esi
+     ;inc	 ESP
      mov     AL,AH        ; restore input character in AL
      and     AL,0FH       ; mask off the upper half-byte
      
@@ -83,7 +120,7 @@ next:
 nextj:
 	 PutCh	 byte[EBX]
      inc	 EBX
-    
+     
      nwln
      jmp	 process_char
     
@@ -98,5 +135,8 @@ espacio:
 	 jmp 	 nextj
 done:     
 	 PutStr newline
+	 nwln
+	 PutStr binario
      nwln
+     PutStr hexadec
      .EXIT
